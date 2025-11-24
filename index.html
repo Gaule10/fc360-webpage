@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FC360 | Performance Intelligence</title>
     
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -168,7 +165,6 @@
 
                 <div class="glass-card p-4">
                     <h3 class="text-lg text-white mb-3">2. Select Game</h3>
-                    <!-- Corrected ID to gameSelect to match JS usage -->
                     <select id="gameSelect" disabled onchange="app.loadGame(this.value)">
                         <option value="" disabled selected>No Game Loaded</option>
                     </select>
@@ -306,6 +302,9 @@
                 } catch (err) {
                     errorMsg.textContent = err.message;
                     errorMsg.classList.remove('hidden');
+                    if (err.code === 'permission-denied') {
+                        errorMsg.textContent = "Database access denied. Please update Firestore Rules in Firebase Console.";
+                    }
                 } finally {
                     btn.disabled = false;
                     btn.textContent = "Access Dashboard";
@@ -348,7 +347,7 @@
                             alert("Preview Mode: Data parsed locally. Go to Dashboard to view (Login skipped).");
                             state.availableGames = [{ id: 'local', name: file.name, data: { playerData: parsed.players } }];
                             switchView('viewDashboard');
-                            const select = document.getElementById('gameSelect'); // FIXED ID
+                            const select = document.getElementById('gameSelect');
                             select.innerHTML = '';
                             const opt = document.createElement('option');
                             opt.value = 0; opt.text = file.name;
@@ -385,13 +384,18 @@
                     pSelect.value = state.user;
                 }
 
-                renderRadarReport(currentUser, playerData.position, playerData, game.data.playerData, game.name);
+                // Fix: Ensure view switch happens BEFORE trying to access DOM elements in renderRadarReport
+                switchView('viewDashboard');
+                
+                // Small delay to ensure DOM is painted
+                setTimeout(() => {
+                    renderRadarReport(currentUser, playerData.position, playerData, game.data.playerData, game.name);
+                }, 50);
             },
             exportPDF: () => {
                  const element = document.getElementById('snapshotContainer');
                  const originalBg = element.style.backgroundColor;
                  const originalOverflow = document.getElementById('dashboardContent').style.overflow;
-
                  document.body.style.cursor = 'wait';
                  document.getElementById('dashboardContent').style.overflow = 'visible';
                  element.style.backgroundColor = '#080214';
@@ -430,7 +434,7 @@
         
         document.getElementById('playerSelect').addEventListener('change', (e) => {
             const player = e.target.value;
-            const gameIdx = document.getElementById('gameSelect').value; // FIXED ID
+            const gameIdx = document.getElementById('gameSelect').value;
             
             Array.from(e.target.options).forEach(opt => {
                 if (opt.text.includes(' / ')) opt.text = opt.text.split(' / ')[0];
@@ -444,13 +448,16 @@
                 if(pData) {
                     const selectedOpt = e.target.options[e.target.selectedIndex];
                     selectedOpt.text = `${player} / ${pData.position}`;
+                    
+                    // Ensure view is ready
+                    switchView('viewDashboard');
                     renderRadarReport(player, pData.position, pData, gameData.playerData, gameName);
                 }
             }
         });
 
         async function fetchUserGames(playerId) {
-            const select = document.getElementById('gameSelect'); // FIXED ID
+            const select = document.getElementById('gameSelect');
             select.innerHTML = '<option>Loading...</option>';
             if(!db) throw new Error("DB not connected");
 
@@ -505,6 +512,7 @@
             const config = positionConfig[position];
             if(!config) return; 
 
+            // SAFEGUARD: Ensure elements exist before setting innerHTML
             const reportHeader = document.getElementById('reportHeader');
             if(reportHeader) {
                 const cleanName = playerName.replace(/^\d+\.\s*/, '');
