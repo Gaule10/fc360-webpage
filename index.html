@@ -1,619 +1,205 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FC360 | Performance Intelligence</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+import React, { useState } from 'react';
 
-    <style>
-        :root {
-            --bg-darkest: #080214;
-            --bg-gradient-center: #1a0b3d;
-            --bg-card: rgba(25, 15, 60, 0.8);
-            --border-glow: rgba(138, 79, 255, 0.4);
-            --accent-pink: #e942f5;
-            --accent-cyan: #38bdf8;
-            --accent-purple: #8a4fff;
-            --text-light: #ffffff;
-            --text-dim: #cbaefc;
-            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
+// Mock Data based on your XML structure for demonstration
+const mockXMLData = [
+  { id: 1, time: '00:01', player: '74. Garfield-Reid', action: 'Pass (Back)' },
+  { id: 2, time: '00:04', player: '33. Amponsah', action: 'Pass (Forward, Long)' },
+  { id: 3, time: '00:14', player: '38. Baiera', action: 'Throw in' },
+  { id: 4, time: '00:17', player: '23. Murray', action: 'Pass (Lateral)' },
+  { id: 9, time: '00:31', player: '71. Molinari', action: 'Interception' },
+  { id: 47, time: '03:27', player: '80. Klein', action: 'Save (Reflex)' },
+];
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: var(--font-main);
-            background: radial-gradient(circle at 50% 20%, var(--bg-gradient-center) 0%, var(--bg-darkest) 80%);
-            background-color: var(--bg-darkest);
-            color: var(--text-light);
-            min-height: 100vh;
-        }
+const MatchAnalysisDashboard = () => {
+  const [activeTab, setActiveTab] = useState('actions'); // 'actions' or 'insights'
+  const [coachNotes, setCoachNotes] = useState('');
 
-        /* UI Components */
-        .glass-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-glow);
-            box-shadow: inset 0 0 20px rgba(138, 79, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 16px;
-            padding: 2rem;
-            transition: border-color 0.3s;
-        }
-        .glass-card:hover { border-color: var(--accent-pink); }
+  // --- FC360 Minimalist Styles ---
+  const styles = {
+    container: {
+      display: 'flex',
+      height: '100vh', // Full screen height
+      fontFamily: 'Inter, Arial, sans-serif',
+      backgroundColor: '#f4f4f4',
+    },
+    videoSection: {
+      flex: 3, // Takes up 75% of width
+      backgroundColor: '#000',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      position: 'relative',
+    },
+    sidebar: {
+      flex: 1, // Takes up 25% of width
+      backgroundColor: '#fff',
+      borderLeft: '1px solid #e0e0e0',
+      display: 'flex',
+      flexDirection: 'column',
+      maxWidth: '400px',
+      minWidth: '300px',
+    },
+    header: {
+      padding: '20px',
+      borderBottom: '1px solid #eee',
+    },
+    tabButton: {
+      padding: '10px 20px',
+      border: 'none',
+      background: 'none',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '600',
+      color: '#888',
+      borderBottom: '2px solid transparent',
+      marginRight: '10px',
+    },
+    activeTab: {
+      color: '#000',
+      borderBottom: '2px solid #000',
+    },
+    listContainer: {
+      flex: 1,
+      overflowY: 'auto', // Scrollable
+      padding: '0',
+    },
+    listItem: {
+      padding: '15px 20px',
+      borderBottom: '1px solid #f0f0f0',
+      cursor: 'pointer',
+      transition: 'background 0.2s',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    listItemHover: {
+      backgroundColor: '#f9f9f9',
+    },
+    timeTag: {
+      fontSize: '12px',
+      color: '#666',
+      backgroundColor: '#eee',
+      padding: '4px 8px',
+      borderRadius: '4px',
+      marginRight: '12px',
+    },
+    playerText: {
+      fontWeight: 'bold',
+      fontSize: '14px',
+      display: 'block',
+      marginBottom: '4px',
+    },
+    actionText: {
+      fontSize: '12px',
+      color: '#555',
+    },
+    textArea: {
+      width: '100%',
+      height: '150px',
+      padding: '10px',
+      borderRadius: '6px',
+      border: '1px solid #ddd',
+      resize: 'none',
+      fontFamily: 'inherit',
+      marginTop: '15px',
+    },
+    insightCard: {
+      backgroundColor: '#f8f9fa',
+      padding: '15px',
+      borderRadius: '8px',
+      marginBottom: '15px',
+      border: '1px solid #eee',
+    }
+  };
 
-        input, select {
-            width: 100%;
-            padding: 1rem;
-            border-radius: 8px;
-            border: 1px solid var(--border-glow);
-            background-color: rgba(10, 4, 28, 0.6);
-            color: var(--text-light);
-            outline: none;
-            margin-bottom: 1rem;
-        }
-        input:focus, select:focus { border-color: var(--accent-pink); }
-        label { display: block; font-size: 0.75rem; color: var(--accent-cyan); font-weight: bold; text-transform: uppercase; margin-bottom: 0.5rem; margin-left: 0.25rem;}
+  return (
+    <div style={styles.container}>
+      
+      {/* LEFT: Video Player Feature */}
+      <div style={styles.videoSection}>
+        {/* Placeholder for Video Player */}
+        <div style={{color: 'white', textAlign: 'center'}}>
+          <h3>Video Player</h3>
+          <p>Match: Union II vs Red Bulls</p>
+          <button style={{padding: '10px 20px', cursor: 'pointer'}}>Play / Pause</button>
+        </div>
+      </div>
 
-        .btn-neon {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
-            color: white;
-            font-weight: bold;
-            border-radius: 30px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: pointer;
-        }
-        .btn-neon:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(233, 66, 245, 0.4);
-        }
-        .btn-text { background: none; border: none; color: var(--text-dim); text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
+      {/* RIGHT: Sidebar Feature */}
+      <div style={styles.sidebar}>
         
-        /* View Management */
-        .view-section { display: none; }
-        .view-section.active { display: block; animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Chart Container */
-        .chart-container { position: relative; height: 400px; width: 100%; display: flex; justify-content: center; align-items: center; }
-        
-        /* PDF Button */
-        #exportPdfBtn { transition: opacity 0.3s ease, transform 0.3s ease; }
-        #exportPdfBtn.hidden-btn { opacity: 0; pointer-events: none; transform: translateY(20px); }
-        #exportPdfBtn.visible-btn { opacity: 1; pointer-events: auto; transform: translateY(0); }
-        
-        /* Video Container */
-        .video-container {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 */
-            height: 0;
-            overflow: hidden;
-            border-radius: 12px;
-            border: 1px solid var(--border-glow);
-            background: #000;
-        }
-        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-    </style>
-</head>
-<body class="p-4 sm:p-8 relative">
-
-    <nav class="flex justify-between items-center mb-8 py-4 border-b border-gray-800">
-        <div class="text-2xl font-bold text-cyan-400 tracking-wider">FC360</div>
-        <div id="userControls" class="hidden flex items-center gap-4">
-            <div class="text-right hidden sm:block">
-                <div id="navName" class="text-white font-bold text-sm"></div>
-                <div id="navPos" class="text-dim text-xs"></div>
-            </div>
-            <button onclick="app.logout()" class="text-xs text-red-400 hover:text-white uppercase tracking-widest font-bold border border-red-400/30 px-3 py-2 rounded hover:bg-red-400/20 transition">Logout</button>
+        {/* Header / Tabs */}
+        <div style={styles.header}>
+          <button 
+            style={{...styles.tabButton, ...(activeTab === 'insights' ? styles.activeTab : {})}}
+            onClick={() => setActiveTab('insights')}
+          >
+            Coaching Insights
+          </button>
+          <button 
+            style={{...styles.tabButton, ...(activeTab === 'actions' ? styles.activeTab : {})}}
+            onClick={() => setActiveTab('actions')}
+          >
+            Actions
+          </button>
         </div>
-    </nav>
 
-    <section id="viewLogin" class="view-section active max-w-md mx-auto mt-20">
-        <div class="glass-card text-center">
-            <h2 class="text-3xl font-bold text-white mb-2">Member Login</h2>
-            <p class="text-dim mb-8 text-sm">Sign in to access your intelligence reports.</p>
-            
-            <form onsubmit="app.login(event)">
-                <div class="text-left">
-                    <label>Email Address</label>
-                    <input type="email" id="loginEmail" placeholder="player@example.com" required>
-                </div>
-                <div class="text-left">
-                    <label>Password</label>
-                    <input type="password" id="loginPass" placeholder="••••••••" required>
-                </div>
-                <button type="submit" id="loginBtn" class="btn-neon mb-4">Login</button>
-                <button type="button" onclick="app.showSignup()" class="btn-text">Create an Account</button>
-                <p id="loginError" class="text-red-400 text-sm mt-4 hidden"></p>
-            </form>
+        {/* Content Area */}
+        <div style={{padding: '20px', flex: 1, overflowY: 'auto'}}>
+          
+          {/* TAB 1: COACHING INSIGHTS */}
+          {activeTab === 'insights' && (
+            <div>
+              <div style={styles.insightCard}>
+                <h4 style={{margin: '0 0 10px 0'}}>AI Observation</h4>
+                <p style={{fontSize: '13px', color: '#555', lineHeight: '1.5'}}>
+                  Union II is struggling with progressive passes in the middle third (45% success rate). Consider reviewing shape during transition.
+                </p>
+              </div>
 
-            <div class="mt-8 pt-8 border-t border-gray-800">
-                <button onclick="app.showAdmin()" class="text-xs text-gray-600 hover:text-gray-400">Admin Access</button>
+              <h4 style={{marginBottom: '10px'}}>Coach Notes</h4>
+              <textarea 
+                style={styles.textArea} 
+                placeholder="Enter your analysis notes here..."
+                value={coachNotes}
+                onChange={(e) => setCoachNotes(e.target.value)}
+              />
+              <button style={{
+                marginTop: '10px', 
+                padding: '8px 16px', 
+                backgroundColor: 'black', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}>
+                Save Notes
+              </button>
             </div>
+          )}
+
+          {/* TAB 2: ACTIONS (The XML Data) */}
+          {activeTab === 'actions' && (
+            <div style={{margin: '-20px'}}> {/* Negative margin to offset padding for flush list */}
+              {mockXMLData.map((item) => (
+                <div key={item.id} style={styles.listItem} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f9f9f9'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}>
+                  <div style={{display: 'flex', alignItems: 'center'}}>
+                    <span style={styles.timeTag}>{item.time}</span>
+                    <div>
+                      <span style={styles.playerText}>{item.player}</span>
+                      <span style={styles.actionText}>{item.action}</span>
+                    </div>
+                  </div>
+                  <div style={{color: '#ccc'}}>▶</div>
+                </div>
+              ))}
+            </div>
+          )}
+
         </div>
-    </section>
+      </div>
+    </div>
+  );
+};
 
-    <section id="viewSignup" class="view-section max-w-md mx-auto mt-10">
-        <div class="glass-card text-center">
-            <h2 class="text-2xl font-bold text-white mb-2">Create Profile</h2>
-            <p class="text-dim mb-6 text-sm">Join the FC360 platform.</p>
-            
-            <form onsubmit="app.signup(event)">
-                <div class="text-left">
-                    <label>Full Name</label>
-                    <input type="text" id="regName" placeholder="John Doe" required>
-                </div>
-                <div class="text-left">
-                    <label>Email Address</label>
-                    <input type="email" id="regEmail" placeholder="john@example.com" required>
-                </div>
-                <div class="text-left">
-                    <label>Password</label>
-                    <input type="password" id="regPass" placeholder="Create a password" required>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="text-left">
-                        <label>Phone</label>
-                        <input type="tel" id="regPhone" placeholder="555-0123">
-                    </div>
-                    <div class="text-left">
-                        <label>Position</label>
-                        <select id="regPos" required>
-                            <option value="Defender">Defender</option>
-                            <option value="Midfielder">Midfielder</option>
-                            <option value="Attacker">Attacker</option>
-                            <option value="Goalkeeper">Goalkeeper</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="text-left bg-gray-900/50 p-3 rounded border border-gray-700 mb-4">
-                    <label class="text-yellow-400">Match Name (Important)</label>
-                    <p class="text-xs text-gray-400 mb-2">How does your name appear in the game data? (e.g., "10. Messi")</p>
-                    <input type="text" id="regMatchName" placeholder="e.g. 23. Jordan" required class="mb-0">
-                </div>
-
-                <button type="submit" id="regBtn" class="btn-neon mb-4">Create Account</button>
-                <button type="button" onclick="app.showLogin()" class="btn-text">Back to Login</button>
-                <p id="regError" class="text-red-400 text-sm mt-4 hidden"></p>
-            </form>
-        </div>
-    </section>
-
-    <section id="viewAdmin" class="view-section max-w-xl mx-auto mt-10">
-        <div class="glass-card">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-white">Admin Data Upload</h2>
-                <button onclick="app.showLogin()" class="text-sm text-dim hover:text-white">Cancel</button>
-            </div>
-            
-            <div class="space-y-6">
-                <div>
-                    <label>YouTube Video ID</label>
-                    <input type="text" id="adminVideoId" placeholder="e.g., dQw4w9WgXcQ" class="bg-gray-900 border-gray-700">
-                </div>
-
-                <div class="p-8 border-2 border-dashed border-gray-600 rounded-lg bg-gray-900/50 text-center hover:border-cyan-500/50 transition-colors">
-                    <label class="block cursor-pointer">
-                        <span class="text-cyan-400 font-bold text-lg block mb-2">Select Sportscode XML</span>
-                        <input type="file" id="adminFile" accept=".xml" class="hidden" onchange="app.handleFileSelect(this)">
-                    </label>
-                    <p id="fileNameDisplay" class="text-sm text-white font-mono bg-gray-800 py-2 px-4 rounded inline-block mt-2">No file selected</p>
-                </div>
-                <button id="uploadBtn" onclick="app.processAndUpload()" disabled class="btn-neon opacity-50 cursor-not-allowed">
-                    Upload & Process Game
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <section id="viewDashboard" class="view-section max-w-6xl mx-auto">
-        <div class="grid md:grid-cols-4 gap-6">
-            <div class="md:col-span-1 space-y-6">
-                <div class="glass-card p-4">
-                    <h3 class="text-lg text-white mb-3">Your Matches</h3>
-                    <select id="gameSelect" disabled onchange="app.loadGame(this.value)">
-                        <option value="" disabled selected>No Games Found</option>
-                    </select>
-                </div>
-                
-                <div class="text-dim text-xs italic p-2 opacity-70 bg-gray-900/30 rounded border border-gray-800">
-                    *Data is filtered based on your Match Name: <span id="displayMatchName" class="text-cyan-400 font-bold"></span>
-                </div>
-            </div>
-
-            <div class="md:col-span-3">
-                <div class="glass-card min-h-[600px]" id="snapshotContainer">
-                    <div class="flex justify-between items-end border-b border-gray-700 pb-4 mb-6">
-                        <div id="reportHeader">
-                            <h2 class="text-3xl text-white font-bold" id="reportTitleText">Welcome</h2>
-                            <p id="reportSubText" class="text-dim text-sm mt-1">Select a game to view analysis</p>
-                        </div>
-                        <div id="brandingText" class="text-xs text-gray-500">FC360 Intelligence</div>
-                    </div>
-
-                    <div id="dashboardContent" class="space-y-8">
-                        <div class="flex flex-col items-center justify-center h-96 text-dim opacity-50">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                            <p>Analytics Ready</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <button id="exportPdfBtn" onclick="app.exportPDF()" class="hidden-btn fixed bottom-8 right-8 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center z-50 cursor-pointer" style="background: var(--accent-cyan);">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-        </svg>
-        Export Profile
-    </button>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- FIREBASE CONFIG (Paste yours here) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyC9y_vQf5lK8OXWwvQlGGmF8yt0HJAE9io",
-            authDomain: "fc360-beccb.firebaseapp.com",
-            projectId: "fc360-beccb",
-            storageBucket: "fc360-beccb.firebasestorage.app",
-            messagingSenderId: "218674719680",
-            appId: "1:218674719680:web:632b7f32d795c3a1b5f625"
-        };
-        // ------------------------------------------
-
-        const appInit = initializeApp(firebaseConfig);
-        const auth = getAuth(appInit);
-        const db = getFirestore(appInit);
-
-        let currentUser = null;
-        let chartInstance = null;
-        const state = { games: [] };
-
-        const positionConfig = {
-            'Defender': {
-                labels: ['Recovery', 'Interception', 'Aerial Duel', 'Ground Duel'],
-                map: { 'Recovery': ['Recovery', 'Counterpressing recovery'], 'Interception': ['Interception'], 'Aerial Duel': ['Aerial duel'], 'Ground Duel': ['Ground duel', 'Defensive duel'] }
-            },
-            'Midfielder': {
-                labels: ['Passes', 'Total Duels', 'Progressive', 'Interception'],
-                map: { 'Passes': ['Pass', 'Forward pass', 'Lateral pass'], 'Total Duels': ['Duel', 'Ground duel'], 'Progressive': ['Progressive pass'], 'Interception': ['Interception'] }
-            },
-            'Attacker': {
-                labels: ['Goals', 'Box Touch', 'Shot', 'Opportunity'],
-                map: { 'Goals': ['Goal'], 'Box Touch': ['Touch in box'], 'Shot': ['Shot'], 'Opportunity': ['Opportunity'] }
-            },
-            'Goalkeeper': {
-                labels: ['Saves', 'Claims', 'Distribution', 'Sweeper'],
-                map: { 'Saves': ['Save'], 'Claims': ['Claim'], 'Distribution': ['Pass', 'Goal kick'], 'Sweeper': ['Sweeper action'] }
-            }
-        };
-        const NEGATIVE_LABELS = ['Loss', 'Dribbled past attempt', 'Offside', 'Conceded goal'];
-
-        window.app = {
-            // --- AUTHENTICATION ---
-            showSignup: () => switchView('viewSignup'),
-            showLogin: () => switchView('viewLogin'),
-            showAdmin: () => switchView('viewAdmin'),
-
-            signup: async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('regBtn');
-                const err = document.getElementById('regError');
-                btn.disabled = true; btn.textContent = "Creating Account...";
-                err.classList.add('hidden');
-
-                const email = document.getElementById('regEmail').value;
-                const pass = document.getElementById('regPass').value;
-                const name = document.getElementById('regName').value;
-                const phone = document.getElementById('regPhone').value;
-                const pos = document.getElementById('regPos').value;
-                const matchName = document.getElementById('regMatchName').value;
-
-                try {
-                    const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
-                    // Store user Profile in 'users' collection
-                    await setDoc(doc(db, "users", userCredential.user.uid), {
-                        fullName: name,
-                        email: email,
-                        phoneNumber: phone,
-                        position: pos,
-                        matchName: matchName, // Crucial for linking XML
-                        createdAt: new Date().toISOString()
-                    });
-                    
-                    alert("Account Created! Please Login.");
-                    switchView('viewLogin');
-                } catch (error) {
-                    err.textContent = error.message;
-                    err.classList.remove('hidden');
-                } finally {
-                    btn.disabled = false; btn.textContent = "Create Account";
-                }
-            },
-
-            login: async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('loginBtn');
-                const err = document.getElementById('loginError');
-                btn.disabled = true; btn.textContent = "Verifying...";
-                err.classList.add('hidden');
-
-                const email = document.getElementById('loginEmail').value;
-                const pass = document.getElementById('loginPass').value;
-
-                try {
-                    const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-                    const uid = userCredential.user.uid;
-                    
-                    // Fetch User Profile
-                    const docRef = doc(db, "users", uid);
-                    const docSnap = await getDoc(docRef);
-                    
-                    if (docSnap.exists()) {
-                        currentUser = docSnap.data();
-                        currentUser.uid = uid;
-                        initDashboard();
-                    } else {
-                        throw new Error("User profile missing. Contact Admin.");
-                    }
-                } catch (error) {
-                    console.error(error);
-                    err.textContent = "Login Failed: " + error.message;
-                    err.classList.remove('hidden');
-                    btn.disabled = false; btn.textContent = "Login";
-                }
-            },
-
-            logout: () => {
-                signOut(auth).then(() => {
-                    currentUser = null;
-                    switchView('viewLogin');
-                });
-            },
-
-            // --- ADMIN ---
-            handleFileSelect: (input) => {
-                if(input.files[0]) {
-                    document.getElementById('fileNameDisplay').textContent = input.files[0].name;
-                    document.getElementById('uploadBtn').disabled = false;
-                    document.getElementById('uploadBtn').classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-            },
-
-            processAndUpload: () => {
-                const file = document.getElementById('adminFile').files[0];
-                const videoId = document.getElementById('adminVideoId').value.trim();
-                
-                if(!file) return;
-                
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    try {
-                        const parser = new DOMParser();
-                        const xml = parser.parseFromString(e.target.result, "text/xml");
-                        const parsed = parseXML(xml);
-                        
-                        const gameId = 'game_' + Date.now();
-                        await setDoc(doc(db, 'artifacts', 'fc360-app', 'public', 'data', 'games', gameId), {
-                            matchName: file.name.replace('.xml', ''),
-                            videoId: videoId,
-                            playerData: parsed.players,
-                            playerList: parsed.playerNames, // Array of string names
-                            uploadDate: new Date().toISOString()
-                        });
-                        alert("Game Uploaded successfully!");
-                        document.getElementById('fileNameDisplay').textContent = "Upload Complete";
-                    } catch(err) {
-                        alert("Error: " + err.message);
-                    }
-                };
-                reader.readAsText(file);
-            },
-
-            // --- DASHBOARD ---
-            loadGame: (index) => {
-                const game = state.games[index];
-                if (!game || !currentUser) return;
-                
-                // Find the user in the game file based on their Match Name
-                // We try exact match, then includes match
-                const availablePlayers = Object.keys(game.data.playerData);
-                let matchedKey = availablePlayers.find(p => p.toLowerCase() === currentUser.matchName.toLowerCase());
-                
-                if(!matchedKey) {
-                    matchedKey = availablePlayers.find(p => p.toLowerCase().includes(currentUser.matchName.toLowerCase()));
-                }
-
-                if (!matchedKey) {
-                    alert(`Could not find player "${currentUser.matchName}" in this game file. Please check your profile Match Name settings.`);
-                    return;
-                }
-
-                const playerData = game.data.playerData[matchedKey];
-                const videoId = game.data.videoId || ''; 
-                
-                // Use the User's Profile Position, not the XML or randomizer
-                renderRadarReport(currentUser.fullName, currentUser.position, playerData, game.data.playerData, game.name, videoId);
-            },
-
-            exportPDF: () => {
-                 const element = document.getElementById('snapshotContainer');
-                 const originalBg = element.style.backgroundColor;
-                 const originalOverflow = document.getElementById('dashboardContent').style.overflow;
-                 document.body.style.cursor = 'wait';
-                 document.getElementById('dashboardContent').style.overflow = 'visible';
-                 element.style.backgroundColor = '#080214';
-                 
-                 const opt = {
-                    margin: 0.1, filename: `${currentUser.fullName}_FC360.pdf`,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#080214' },
-                    jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
-                };
-                html2pdf().set(opt).from(element).save().then(() => {
-                    element.style.backgroundColor = originalBg;
-                    document.getElementById('dashboardContent').style.overflow = originalOverflow;
-                    document.body.style.cursor = 'default';
-                });
-            }
-        };
-
-        // --- INTERNAL FUNCTIONS ---
-        function switchView(id) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-        }
-
-        async function initDashboard() {
-            // Update User Badge
-            document.getElementById('navName').textContent = currentUser.fullName;
-            document.getElementById('navPos').textContent = currentUser.position;
-            document.getElementById('displayMatchName').textContent = currentUser.matchName;
-            document.getElementById('userControls').classList.remove('hidden');
-
-            switchView('viewDashboard');
-
-            // Fetch Games
-            const select = document.getElementById('gameSelect');
-            select.innerHTML = '<option>Searching for your matches...</option>';
-
-            const q = collection(db, 'artifacts', 'fc360-app', 'public', 'data', 'games');
-            const snapshot = await getDocs(q);
-            state.games = [];
-
-            snapshot.forEach(doc => {
-                const d = doc.data();
-                // Filter: Only add game if the user's Match Name appears in the playerList
-                const userInGame = d.playerList.some(name => 
-                    name.toLowerCase().includes(currentUser.matchName.toLowerCase())
-                );
-                
-                if (userInGame) {
-                    state.games.push({ id: doc.id, name: d.matchName, data: d });
-                }
-            });
-
-            if (state.games.length === 0) {
-                select.innerHTML = '<option>No matches found with your name.</option>';
-                select.disabled = true;
-            } else {
-                select.innerHTML = '<option value="" disabled selected>Select Match</option>';
-                state.games.forEach((g, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = i; opt.text = g.name;
-                    select.appendChild(opt);
-                });
-                select.disabled = false;
-            }
-        }
-
-        function parseXML(xmlDoc) {
-            const instances = xmlDoc.querySelectorAll('instance');
-            const players = {};
-            instances.forEach(inst => {
-                const code = inst.querySelector('code')?.textContent?.trim();
-                if(!code) return;
-                if(!players[code]) players[code] = { actions: {} };
-                const labels = Array.from(inst.querySelectorAll('label text')).map(t => t.textContent.trim());
-                let success = !labels.some(l => NEGATIVE_LABELS.includes(l));
-                labels.forEach(l => {
-                    if(l.startsWith('<flag>')) return;
-                    if(!players[code].actions[l]) players[code].actions[l] = { total: 0, success: 0 };
-                    players[code].actions[l].total++;
-                    if(success) players[code].actions[l].success++;
-                });
-            });
-            return { players, playerNames: Object.keys(players) };
-        }
-
-        function renderRadarReport(playerName, position, pData, allPlayersData, gameName, videoId) {
-            const config = positionConfig[position] || positionConfig['Midfielder'];
-            
-            const reportHeader = document.getElementById('reportHeader');
-            reportHeader.innerHTML = `
-                <div class="flex flex-col">
-                    <span class="text-3xl text-white font-bold">${playerName}</span>
-                    <span class="text-lg text-cyan-400 mt-1">${position}</span>
-                    <span class="text-sm text-dim mt-1">Match: ${gameName}</span>
-                </div>
-            `;
-            
-            document.getElementById('exportPdfBtn').classList.add('visible-btn');
-            document.getElementById('exportPdfBtn').classList.remove('hidden-btn');
-
-            const pMetrics = config.labels.map(lbl => {
-                let t = 0, s = 0;
-                config.map[lbl].forEach(term => {
-                    if(pData.actions[term]) { t += pData.actions[term].total; s += pData.actions[term].success; }
-                });
-                const pct = t > 0 ? Math.round((s/t)*100) : 0;
-                return { label: lbl, total: t, succ: s, pct };
-            });
-
-            const tMetrics = config.labels.map(lbl => {
-                let t = 0, s = 0;
-                Object.values(allPlayersData).forEach(p => {
-                    config.map[lbl].forEach(term => {
-                        if(p.actions[term]) { t += p.actions[term].total; s += p.actions[term].success; }
-                    });
-                });
-                return t > 0 ? Math.round((s/t)*100) : 0;
-            });
-
-            let videoEmbed = videoId ? `https://www.youtube.com/embed/${videoId}` : "https://www.youtube.com/embed/dQw4w9WgXcQ?mute=1";
-
-            const container = document.getElementById('dashboardContent');
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center h-full">
-                    <div class="lg:col-span-1 space-y-4">
-                        ${pMetrics.map((m, i) => `
-                            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
-                                <div><span class="text-dim font-bold uppercase text-sm block">${m.label}</span><span class="text-xs text-gray-500">Avg: ${tMetrics[i]}%</span></div>
-                                <div class="text-right"><div class="space-x-1"><span class="text-xl text-white font-mono">${m.total}</span><span class="text-xs text-dim">/</span><span class="text-xl text-green-400 font-mono">${m.succ}</span></div><div class="text-xs text-cyan-400">${m.pct}%</div></div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    <div class="lg:col-span-2 bg-gray-900/40 rounded-xl border border-gray-700 p-4 flex justify-center items-center h-[400px]">
-                        <div class="chart-container"><canvas id="radarChart"></canvas></div>
-                    </div>
-                </div>
-                <div class="glass-card p-6 border border-gray-700 rounded-xl">
-                    <h3 class="text-white font-bold text-xl mb-4">Video Analysis</h3>
-                    <div class="video-container"><iframe width="560" height="315" src="${videoEmbed}" title="Match Video" frameborder="0" allowfullscreen></iframe></div>
-                </div>
-            `;
-
-            const ctx = document.getElementById('radarChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
-            
-            chartInstance = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: config.labels,
-                    datasets: [
-                        { label: 'Player', data: pMetrics.map(m => m.pct), backgroundColor: 'rgba(74, 222, 128, 0.2)', borderColor: '#4ade80', pointBackgroundColor: '#38bdf8', borderWidth: 2 },
-                        { label: 'Avg', data: tMetrics, backgroundColor: 'rgba(255, 255, 255, 0.05)', borderColor: 'rgba(255, 255, 255, 0.4)', borderWidth: 1, borderDash: [5, 5] }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    scales: { r: { angleLines: { color: 'rgba(255, 255, 255, 0.1)' }, grid: { color: 'rgba(255, 255, 255, 0.1)' }, pointLabels: { color: '#cbaefc', font: { size: 14 } }, ticks: { display: false, max: 100, min: 0 } } },
-                    plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } }
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+export default MatchAnalysisDashboard;
