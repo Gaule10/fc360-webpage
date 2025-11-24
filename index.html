@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FC360 | Performance Intelligence</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-darkest: #080214;
+            --bg-gradient-center: #1a0b3d;
+            --bg-card: rgba(25, 15, 60, 0.8);
+            --border-glow: rgba(138, 79, 255, 0.4);
+            --accent-pink: #e942f5;
+            --accent-cyan: #38bdf8;
+            --accent-purple: #8a4fff;
+            --accent-green: #4ade80;
+            --text-light: #ffffff;
+            --text-dim: #cbaefc;
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-main);
+            background: radial-gradient(circle at 50% 20%, var(--bg-gradient-center) 0%, var(--bg-darkest) 80%);
+            background-color: var(--bg-darkest);
+            color: var(--text-light);
+            min-height: 100vh;
+        }
+
+        /* UI Components */
+        .glass-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            box-shadow: inset 0 0 20px rgba(138, 79, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: border-color 0.3s;
+        }
+        .glass-card:hover { border-color: var(--accent-pink); }
+
+        input, select {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-glow);
+            background-color: rgba(10, 4, 28, 0.6);
+            color: var(--text-light);
+            outline: none;
+        }
+        input:focus, select:focus { border-color: var(--accent-pink); }
+
+        .btn-neon {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            color: white;
+            font-weight: bold;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-neon:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(233, 66, 245, 0.4);
+        }
+
+        /* View Management */
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: fadeIn 0.5s ease-out; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .chart-container { position: relative; height: 400px; width: 100%; display: flex; justify-content: center; }
+        
+        #globalError {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); color: #ff4444; z-index: 9999;
+            padding: 2rem; display: none; font-family: monospace;
+        }
+        
+        /* PDF Button */
+        #exportPdfBtn {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+        }
+        #exportPdfBtn.hidden-btn { opacity: 0; pointer-events: none; transform: translateY(20px); }
+        #exportPdfBtn.visible-btn { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    </style>
+</head>
+<body class="p-4 sm:p-8 relative">
+
+    <div id="globalError"></div>
+
+    <!-- Nav -->
+    <nav class="flex justify-between items-center mb-8 py-4 border-b border-gray-800">
+        <div class="text-2xl font-bold text-cyan-400 tracking-wider">FC360</div>
+        <div id="userControls" class="hidden flex items-center gap-4">
+            <span id="userBadge" class="text-dim text-sm"></span>
+            <button onclick="app.logout()" class="text-xs text-red-400 hover:text-white uppercase tracking-widest">Logout</button>
+        </div>
+    </nav>
+
+    <!-- VIEW: LOGIN -->
+    <section id="viewLogin" class="view-section active max-w-md mx-auto mt-20">
+        <div class="glass-card text-center">
+            <h2 class="text-3xl font-bold text-white mb-2">Player Access</h2>
+            <p class="text-dim mb-8 text-sm">Enter your unique ID to access your performance data.</p>
+            
+            <form onsubmit="app.login(event)" class="space-y-6">
+                <div class="text-left">
+                    <label class="text-xs text-cyan-400 uppercase font-bold ml-1">Player ID</label>
+                    <input type="text" id="loginId" placeholder="e.g., 33. Amponsah" required class="mt-1">
+                </div>
+                <button type="submit" class="btn-neon">Access Dashboard</button>
+            </form>
+
+            <div class="mt-8 pt-8 border-t border-gray-800">
+                <button onclick="app.showAdmin()" class="text-xs text-gray-600 hover:text-gray-400">Admin: Upload Game Data</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- VIEW: ADMIN UPLOAD -->
+    <section id="viewAdmin" class="view-section max-w-xl mx-auto mt-10">
+        <div class="glass-card">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">Admin Data Upload</h2>
+                <button onclick="app.showLogin()" class="text-sm text-dim">Cancel</button>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="p-4 border border-dashed border-gray-600 rounded-lg bg-gray-900/50 text-center">
+                    <label class="block cursor-pointer">
+                        <span class="text-cyan-400 font-bold">Select Sportscode XML</span>
+                        <input type="file" id="adminFile" accept=".xml" class="hidden" onchange="app.handleFileSelect(this)">
+                    </label>
+                    <p id="fileNameDisplay" class="text-sm text-dim mt-2 italic">No file selected</p>
+                </div>
+                <button id="uploadBtn" onclick="app.processAndUpload()" disabled class="btn-neon opacity-50 cursor-not-allowed">
+                    Upload & Process Game
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- VIEW: DASHBOARD -->
+    <section id="viewDashboard" class="view-section max-w-6xl mx-auto">
+        <div class="grid md:grid-cols-4 gap-6">
+            
+            <!-- Sidebar -->
+            <div class="md:col-span-1 space-y-6">
+                <div class="glass-card p-5">
+                    <label class="text-xs text-cyan-400 uppercase font-bold">Select Game</label>
+                    <select id="gameSelector" onchange="app.loadGame(this.value)" class="mt-2 text-sm">
+                        <option value="" disabled selected>Loading games...</option>
+                    </select>
+                </div>
+
+                <div class="glass-card p-5 text-center">
+                    <div class="w-20 h-20 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full mx-auto mb-3 flex items-center justify-center text-2xl font-bold text-white">
+                        <span id="avatarInitials">--</span>
+                    </div>
+                    <h3 id="profileName" class="text-white font-bold text-lg">Player</h3>
+                    <div id="profilePosition" class="text-cyan-400 text-sm font-mono mt-1">Position</div>
+                </div>
+                
+                <button onclick="app.exportPDF()" class="btn-neon bg-gradient-to-r from-cyan-500 to-blue-500 text-sm py-2">
+                    Export PDF Report
+                </button>
+            </div>
+
+            <!-- Main Content -->
+            <div class="md:col-span-3">
+                <div class="glass-card min-h-[600px]" id="snapshotContainer">
+                    <div class="flex justify-between items-end border-b border-gray-700 pb-4 mb-6">
+                        <div>
+                            <h2 id="reportHeader" class="text-3xl text-white font-bold">Select a Match</h2>
+                        </div>
+                        <div class="text-xs text-gray-500">FC360 Intelligence</div>
+                    </div>
+
+                    <div id="dashboardContent" class="space-y-8">
+                        <div class="flex flex-col items-center justify-center h-96 text-dim opacity-30">
+                            <p>Select a game from the sidebar to view your performance data.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. PASTE YOUR FIREBASE CONFIG HERE ---
+        const yourFirebaseConfig = {
+            // Example format (copy from Firebase Console):
+            // apiKey: "AIzaSy...",
+            // authDomain: "fc360-analytics.firebaseapp.com",
+            // projectId: "fc360-analytics",
+            // storageBucket: "fc360-analytics.appspot.com",
+            // messagingSenderId: "...",
+            // appId: "..."
+        };
+        // -----------------------------------------
+
+        // Check for environment config (Canvas) or manual config (Deployment)
+        const firebaseConfig = (typeof __firebase_config !== 'undefined') 
+            ? JSON.parse(__firebase_config) 
+            : yourFirebaseConfig;
+
+        let db, auth;
+
+        // Initialize Firebase
+        if (firebaseConfig && firebaseConfig.apiKey) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                signInAnonymously(auth).catch(e => console.error("Auth Error", e));
+            } catch (e) { console.error("Firebase Init Error", e); }
+        } else {
+            console.warn("No Firebase Config found. Admin upload will not save.");
+        }
+
+        // --- App State ---
+        const state = {
+            user: null, 
+            availableGames: []
+        };
+
+        // --- Configuration ---
+        const positionConfig = {
+            'Defender': {
+                labels: ['Recovery', 'Interception', 'Aerial Duel', 'Ground Duel'],
+                map: {
+                    'Recovery': ['Recovery', 'Counterpressing recovery'],
+                    'Interception': ['Interception'],
+                    'Aerial Duel': ['Aerial duel'],
+                    'Ground Duel': ['Ground duel', 'Defensive duel']
+                }
+            },
+            'Midfielder': {
+                labels: ['Passes', 'Total Duels', 'Progressive', 'Interception'],
+                map: {
+                    'Passes': ['Pass', 'Forward pass', 'Lateral pass', 'Back pass'],
+                    'Total Duels': ['Duel', 'Ground duel', 'Aerial duel'],
+                    'Progressive': ['Progressive pass', 'Progressive run'],
+                    'Interception': ['Interception']
+                }
+            },
+            'Attacker': {
+                labels: ['Goals', 'Box Touch', 'Shot', 'Opportunity'],
+                map: {
+                    'Goals': ['Goal'],
+                    'Box Touch': ['Touch in box'],
+                    'Shot': ['Shot'],
+                    'Opportunity': ['Opportunity']
+                }
+            }
+        };
+
+        const NEGATIVE_LABELS = ['Loss', 'Dribbled past attempt', 'Offside', 'Conceded goal'];
+
+        // --- UI Logic ---
+        window.app = {
+            login: async (e) => {
+                e.preventDefault();
+                const id = document.getElementById('loginId').value.trim();
+                if(!id) return;
+                state.user = id;
+                document.getElementById('userBadge').textContent = id;
+                document.getElementById('userControls').classList.remove('hidden');
+                await fetchUserGames(id);
+                switchView('viewDashboard');
+            },
+            logout: () => {
+                state.user = null;
+                switchView('viewLogin');
+            },
+            showAdmin: () => switchView('viewAdmin'),
+            showLogin: () => switchView('viewLogin'),
+            handleFileSelect: (input) => {
+                if(input.files[0]) {
+                    document.getElementById('uploadBtn').disabled = false;
+                    document.getElementById('uploadBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+            },
+            processAndUpload: () => {
+                const file = document.getElementById('adminFile').files[0];
+                if(!file) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const parser = new DOMParser();
+                    const xml = parser.parseFromString(e.target.result, "text/xml");
+                    const parsed = parseXML(xml);
+                    assignRandomPositions(parsed.playerNames, parsed.players);
+                    
+                    // Upload to Firestore
+                    if(db) {
+                        const gameId = 'game_' + Date.now();
+                        await setDoc(doc(db, 'artifacts', 'fc360-app', 'public', 'data', 'games', gameId), {
+                            matchName: file.name.replace('.xml', ''),
+                            playerData: parsed.players,
+                            playerList: parsed.playerNames
+                        });
+                        alert("Game Uploaded! Players can now log in.");
+                        switchView('viewLogin');
+                    } else {
+                        alert("Firebase not configured. Cannot save data.");
+                    }
+                };
+                reader.readAsText(file);
+            },
+            loadGame: (index) => {
+                const game = state.availableGames[index];
+                const playerData = game.data.playerData[state.user];
+                
+                // Update Sidebar
+                const cleanName = state.user.replace(/^\d+\.\s*/, '');
+                document.getElementById('profileName').textContent = cleanName;
+                document.getElementById('profilePosition').textContent = playerData.position;
+                document.getElementById('avatarInitials').textContent = cleanName.substring(0,2).toUpperCase();
+
+                // Update Header
+                let opposition = "Opposition";
+                if(game.name.includes('@')) opposition = game.name.split('@')[1].trim();
+                
+                document.getElementById('reportHeader').innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-3xl text-white font-bold">${cleanName}</span>
+                        <span class="text-lg text-cyan-400 mt-1">${playerData.position}</span>
+                        <span class="text-sm text-dim mt-1">vs ${opposition}</span>
+                    </div>
+                `;
+
+                renderRadar(playerData, game.data.playerData);
+            },
+            exportPDF: () => {
+                 const element = document.getElementById('snapshotContainer');
+                 const opt = {
+                    margin: 0.2,
+                    filename: `${state.user}_Report.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#080214' },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+                };
+                html2pdf().set(opt).from(element).save();
+            }
+        };
+
+        function switchView(id) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        async function fetchUserGames(playerId) {
+            const select = document.getElementById('gameSelector');
+            select.innerHTML = '<option>Loading...</option>';
+            if(!db) return;
+
+            const q = collection(db, 'artifacts', 'fc360-app', 'public', 'data', 'games');
+            const snapshot = await getDocs(q);
+            state.availableGames = [];
+            
+            snapshot.forEach(doc => {
+                const d = doc.data();
+                if(d.playerData && d.playerData[playerId]) {
+                    state.availableGames.push({ id: doc.id, name: d.matchName, data: d });
+                }
+            });
+
+            select.innerHTML = '<option value="" disabled selected>Select Match</option>';
+            state.availableGames.forEach((g, i) => {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.text = g.name;
+                select.appendChild(opt);
+            });
+        }
+
+        // Helper Logic (Same as before)
+        function parseXML(xmlDoc) {
+            const instances = xmlDoc.querySelectorAll('instance');
+            const players = {};
+            instances.forEach(inst => {
+                const code = inst.querySelector('code')?.textContent?.trim();
+                if(!code) return;
+                if(!players[code]) players[code] = { actions: {}, position: 'Unknown' };
+                const labels = Array.from(inst.querySelectorAll('label text')).map(t => t.textContent.trim());
+                let success = !labels.some(l => NEGATIVE_LABELS.includes(l));
+                labels.forEach(l => {
+                    if(l.startsWith('<flag>')) return;
+                    if(!players[code].actions[l]) players[code].actions[l] = { total: 0, success: 0 };
+                    players[code].actions[l].total++;
+                    if(success) players[code].actions[l].success++;
+                });
+            });
+            return { players, playerNames: Object.keys(players).sort() };
+        }
+
+        function assignRandomPositions(names, playersObj) {
+            const shuffled = [...names].sort(() => 0.5 - Math.random());
+            const third = Math.ceil(shuffled.length/3);
+            shuffled.forEach((n, i) => {
+                playersObj[n].position = (i < third) ? 'Defender' : (i < third*2) ? 'Midfielder' : 'Attacker';
+            });
+        }
+
+        function renderRadar(pData, allData) {
+            const config = positionConfig[pData.position];
+            const container = document.getElementById('dashboardContent');
+
+            // Metrics Calc
+            const pMetrics = config.labels.map(lbl => {
+                let t = 0, s = 0;
+                config.map[lbl].forEach(k => { if(pData.actions[k]) { t += pData.actions[k].total; s += pData.actions[k].success; }});
+                return { label: lbl, total: t, succ: s, pct: t > 0 ? Math.round((s/t)*100) : 0 };
+            });
+
+            const tMetrics = config.labels.map(lbl => {
+                let t = 0, s = 0;
+                Object.values(allData).forEach(p => {
+                    config.map[lbl].forEach(k => { if(p.actions[k]) { t += p.actions[k].total; s += p.actions[k].success; }});
+                });
+                return t > 0 ? Math.round((s/t)*100) : 0;
+            });
+
+            // Render Layout
+            container.innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center h-full">
+                    <div class="lg:col-span-1 space-y-4">
+                        ${pMetrics.map((m, i) => `
+                            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
+                                <div>
+                                    <span class="text-dim font-bold uppercase text-sm block">${m.label}</span>
+                                    <span class="text-xs text-gray-500">Team Avg: ${tMetrics[i]}%</span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xl text-white font-mono">${m.total}</span>
+                                    <span class="text-xs text-dim">/</span>
+                                    <span class="text-xl text-green-400 font-mono">${m.succ}</span>
+                                    <div class="text-xs text-cyan-400">${m.pct}% Rate</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="lg:col-span-2 bg-gray-900/40 rounded-xl border border-gray-700 p-4 flex justify-center items-center h-[400px]">
+                        <div class="chart-container">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Chart
+            const ctx = document.getElementById('radarChart').getContext('2d');
+            if(window.myChart) window.myChart.destroy();
+            window.myChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: config.labels,
+                    datasets: [
+                        {
+                            label: 'Player',
+                            data: pMetrics.map(m => m.pct),
+                            backgroundColor: 'rgba(74, 222, 128, 0.2)',
+                            borderColor: '#4ade80',
+                            pointBackgroundColor: '#38bdf8',
+                            pointBorderColor: '#fff',
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Team Avg',
+                            data: tMetrics,
+                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                            borderColor: 'rgba(255, 255, 255, 0.4)',
+                            borderWidth: 1,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            pointLabels: { color: '#cbaefc', font: { size: 14, weight: 'bold' } },
+                            ticks: { display: false, max: 100, min: 0 },
+                            suggestedMin: 0, suggestedMax: 100
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', align: 'start', labels: { color: '#9ca3af', usePointStyle: true, boxWidth: 8 } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
