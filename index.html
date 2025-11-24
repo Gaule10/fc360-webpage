@@ -168,7 +168,8 @@
 
                 <div class="glass-card p-4">
                     <h3 class="text-lg text-white mb-3">2. Select Game</h3>
-                    <select id="gameSelect" disabled>
+                    <!-- Corrected ID to gameSelect to match JS usage -->
+                    <select id="gameSelect" disabled onchange="app.loadGame(this.value)">
                         <option value="" disabled selected>No Game Loaded</option>
                     </select>
                 </div>
@@ -224,8 +225,7 @@
             projectId: "fc360-beccb",
             storageBucket: "fc360-beccb.firebasestorage.app",
             messagingSenderId: "218674719680",
-            appId: "1:218674719680:web:632b7f32d795c3a1b5f625",
-            measurementId: "G-Q3Y1K1P398"
+            appId: "1:218674719680:web:632b7f32d795c3a1b5f625"
         };
         // ---------------------------------------
 
@@ -344,21 +344,17 @@
                             alert("Game Uploaded! Players can now log in.");
                             switchView('viewLogin');
                         } else {
-                            // Fallback for preview mode without DB
                             globalData = parsed;
-                            alert("Preview Mode: Data parsed locally. Go to Dashboard.");
+                            alert("Preview Mode: Data parsed locally. Go to Dashboard to view (Login skipped).");
                             state.availableGames = [{ id: 'local', name: file.name, data: { playerData: parsed.players } }];
                             switchView('viewDashboard');
-                            
-                            // Setup select
-                            const select = document.getElementById('gameSelector');
+                            const select = document.getElementById('gameSelect'); // FIXED ID
                             select.innerHTML = '';
                             const opt = document.createElement('option');
                             opt.value = 0; opt.text = file.name;
                             select.appendChild(opt);
                             select.disabled = false;
                             
-                            // Enable player select manually for preview
                             document.getElementById('playerSelect').disabled = false;
                             populateDropdown(parsed.playerNames);
                         }
@@ -373,16 +369,13 @@
                 const game = state.availableGames[index];
                 if (!game) return;
                 
-                // If in admin preview mode (user is null), let them pick from dropdown
                 const currentUser = state.user || document.getElementById('playerSelect').value;
                 if (!currentUser) return;
 
                 const playerData = game.data.playerData[currentUser];
                 
-                // Ensure dropdown matches current user if coming from Login flow
                 if(state.user) {
                     const pSelect = document.getElementById('playerSelect');
-                    // Clear and set just this player
                     pSelect.innerHTML = '';
                     const opt = document.createElement('option');
                     opt.value = state.user;
@@ -398,6 +391,7 @@
                  const element = document.getElementById('snapshotContainer');
                  const originalBg = element.style.backgroundColor;
                  const originalOverflow = document.getElementById('dashboardContent').style.overflow;
+
                  document.body.style.cursor = 'wait';
                  document.getElementById('dashboardContent').style.overflow = 'visible';
                  element.style.backgroundColor = '#080214';
@@ -417,6 +411,7 @@
             }
         };
 
+        // --- UI Helpers ---
         function switchView(id) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -433,13 +428,10 @@
             });
         }
         
-        // Manual player change handler (mostly for Admin Preview mode)
         document.getElementById('playerSelect').addEventListener('change', (e) => {
             const player = e.target.value;
-            const gameIdx = document.getElementById('gameSelector').value;
+            const gameIdx = document.getElementById('gameSelect').value; // FIXED ID
             
-            // Logic for dynamic dropdown text update
-            // 1. Reset all options to just Name
             Array.from(e.target.options).forEach(opt => {
                 if (opt.text.includes(' / ')) opt.text = opt.text.split(' / ')[0];
             });
@@ -449,16 +441,16 @@
                 const pData = gameData.playerData[player];
                 const gameName = state.availableGames[gameIdx].name;
                 
-                // 2. Update Selected Option Text
-                const selectedOpt = e.target.options[e.target.selectedIndex];
-                if(pData) selectedOpt.text = `${player} / ${pData.position}`;
-
-                renderRadarReport(player, pData.position, pData, gameData.playerData, gameName);
+                if(pData) {
+                    const selectedOpt = e.target.options[e.target.selectedIndex];
+                    selectedOpt.text = `${player} / ${pData.position}`;
+                    renderRadarReport(player, pData.position, pData, gameData.playerData, gameName);
+                }
             }
         });
 
         async function fetchUserGames(playerId) {
-            const select = document.getElementById('gameSelector');
+            const select = document.getElementById('gameSelect'); // FIXED ID
             select.innerHTML = '<option>Loading...</option>';
             if(!db) throw new Error("DB not connected");
 
@@ -511,28 +503,31 @@
 
         function renderRadarReport(playerName, position, pData, allPlayersData, gameName) {
             const config = positionConfig[position];
-            
-            // SAFEGUARD: Check if config exists for position
-            if(!config) {
-                console.error("Unknown position config for:", position);
-                return; 
-            }
+            if(!config) return; 
 
             const reportHeader = document.getElementById('reportHeader');
             if(reportHeader) {
+                const cleanName = playerName.replace(/^\d+\.\s*/, '');
+                let opposition = "Opposition";
+                if(gameName && gameName.includes('@')) opposition = gameName.split('@')[1].trim();
+
                 reportHeader.innerHTML = `
-                    <h2 class="text-3xl text-white font-bold">
-                        <span style="color:var(--accent-cyan)">${playerName}</span> 
-                        <span class="text-sm text-dim">| ${position}</span>
-                    </h2>
+                    <div class="flex flex-col">
+                        <span class="text-3xl text-white font-bold">${cleanName}</span>
+                        <span class="text-lg text-cyan-400 mt-1">${position}</span>
+                        <span class="text-sm text-dim mt-1">vs ${opposition}</span>
+                    </div>
                 `;
             }
             
-            const brandingEl = document.querySelector('#snapshotContainer .text-dim.text-sm');
+            const brandingEl = document.getElementById('brandingText');
             if(brandingEl) brandingEl.textContent = "FC360 Intelligence";
 
-            document.getElementById('exportPdfBtn').classList.add('visible-btn');
-            document.getElementById('exportPdfBtn').classList.remove('hidden-btn');
+            const exportBtn = document.getElementById('exportPdfBtn');
+            if(exportBtn) {
+                exportBtn.classList.add('visible-btn');
+                exportBtn.classList.remove('hidden-btn');
+            }
 
             const pMetrics = config.labels.map(lbl => {
                 let t = 0, s = 0;
@@ -560,81 +555,83 @@
             });
 
             const container = document.getElementById('dashboardContent');
-            container.innerHTML = `
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center h-full">
-                    <div class="lg:col-span-1 space-y-4">
-                        ${pMetrics.map((m, i) => `
-                            <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
-                                <div>
-                                    <span class="text-dim font-bold uppercase text-sm block">${m.label}</span>
-                                    <span class="text-xs text-gray-500">Team Avg: ${tMetrics[i]}%</span>
-                                </div>
-                                <div class="text-right">
-                                    <div class="space-x-1">
-                                        <span class="text-xl text-white font-mono">${m.total}</span>
-                                        <span class="text-xs text-dim">/</span>
-                                        <span class="text-xl text-green-400 font-mono">${m.succ}</span>
+            if(container) {
+                container.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center h-full">
+                        <div class="lg:col-span-1 space-y-4">
+                            ${pMetrics.map((m, i) => `
+                                <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
+                                    <div>
+                                        <span class="text-dim font-bold uppercase text-sm block">${m.label}</span>
+                                        <span class="text-xs text-gray-500">Team Avg: ${tMetrics[i]}%</span>
                                     </div>
-                                    <div class="text-xs text-cyan-400">${m.pct}% Rate</div>
+                                    <div class="text-right">
+                                        <div class="space-x-1">
+                                            <span class="text-xl text-white font-mono">${m.total}</span>
+                                            <span class="text-xs text-dim">/</span>
+                                            <span class="text-xl text-green-400 font-mono">${m.succ}</span>
+                                        </div>
+                                        <div class="text-xs text-cyan-400">${m.pct}% Rate</div>
+                                    </div>
                                 </div>
+                            `).join('')}
+                        </div>
+                        <div class="lg:col-span-2 bg-gray-900/40 rounded-xl border border-gray-700 p-4 flex justify-center items-center h-[400px]">
+                            <div class="chart-container">
+                                <canvas id="radarChart"></canvas>
                             </div>
-                        `).join('')}
-                    </div>
-                    <div class="lg:col-span-2 bg-gray-900/40 rounded-xl border border-gray-700 p-4 flex justify-center items-center h-[400px]">
-                        <div class="chart-container">
-                            <canvas id="radarChart"></canvas>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            const ctx = document.getElementById('radarChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
-            
-            chartInstance = new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: config.labels,
-                    datasets: [
-                        {
-                            label: 'Player',
-                            data: pMetrics.map(m => m.pct),
-                            backgroundColor: 'rgba(74, 222, 128, 0.2)',
-                            borderColor: '#4ade80',
-                            pointBackgroundColor: '#38bdf8',
-                            pointBorderColor: '#fff',
-                            borderWidth: 2,
-                            order: 1
-                        },
-                        {
-                            label: 'Team Avg',
-                            data: tMetrics,
-                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            borderColor: 'rgba(255, 255, 255, 0.4)',
-                            pointBackgroundColor: 'rgba(255, 255, 255, 0.4)',
-                            borderWidth: 1,
-                            borderDash: [5, 5],
-                            order: 2
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        r: {
-                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
-                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
-                            pointLabels: { color: '#cbaefc', font: { size: 14, weight: 'bold' } },
-                            ticks: { display: false, max: 100, min: 0 },
-                            suggestedMin: 0, suggestedMax: 100
-                        }
+                const ctx = document.getElementById('radarChart').getContext('2d');
+                if(chartInstance) chartInstance.destroy();
+                
+                chartInstance = new Chart(ctx, {
+                    type: 'radar',
+                    data: {
+                        labels: config.labels,
+                        datasets: [
+                            {
+                                label: 'Player',
+                                data: pMetrics.map(m => m.pct),
+                                backgroundColor: 'rgba(74, 222, 128, 0.2)',
+                                borderColor: '#4ade80',
+                                pointBackgroundColor: '#38bdf8',
+                                pointBorderColor: '#fff',
+                                borderWidth: 2,
+                                order: 1
+                            },
+                            {
+                                label: 'Team Avg',
+                                data: tMetrics,
+                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                borderColor: 'rgba(255, 255, 255, 0.4)',
+                                pointBackgroundColor: 'rgba(255, 255, 255, 0.4)',
+                                borderWidth: 1,
+                                borderDash: [5, 5],
+                                order: 2
+                            }
+                        ]
                     },
-                    plugins: {
-                        legend: { position: 'bottom', align: 'start', labels: { color: '#9ca3af', usePointStyle: true, boxWidth: 8, padding: 20 } }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            r: {
+                                angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                pointLabels: { color: '#cbaefc', font: { size: 14, weight: 'bold' } },
+                                ticks: { display: false, max: 100, min: 0 },
+                                suggestedMin: 0, suggestedMax: 100
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom', align: 'start', labels: { color: '#9ca3af', usePointStyle: true, boxWidth: 8, padding: 20 } }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     </script>
 </body>
