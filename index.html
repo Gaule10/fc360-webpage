@@ -5,11 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FC360 | Performance Intelligence</title>
     
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- html2pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
@@ -21,7 +18,6 @@
             --accent-pink: #e942f5;
             --accent-cyan: #38bdf8;
             --accent-purple: #8a4fff;
-            --accent-green: #4ade80;
             --text-light: #ffffff;
             --text-dim: #cbaefc;
             --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -95,7 +91,7 @@
             padding: 2rem; display: none; font-family: monospace;
         }
 
-                /* Video Container */
+        /* Video Container */
         .video-container {
             position: relative;
             padding-bottom: 56.25%; /* 16:9 */
@@ -103,6 +99,7 @@
             overflow: hidden;
             border-radius: 12px;
             border: 1px solid var(--border-glow);
+            background: #000;
         }
         .video-container iframe {
             position: absolute;
@@ -117,7 +114,6 @@
 
     <div id="globalError"></div>
 
-    <!-- Nav -->
     <nav class="flex justify-between items-center mb-8 py-4 border-b border-gray-800">
         <div class="text-2xl font-bold text-cyan-400 tracking-wider">FC360</div>
         <div id="userControls" class="hidden flex items-center gap-4">
@@ -126,7 +122,6 @@
         </div>
     </nav>
 
-    <!-- VIEW: LOGIN -->
     <section id="viewLogin" class="view-section active max-w-md mx-auto mt-20">
         <div class="glass-card text-center">
             <h2 class="text-3xl font-bold text-white mb-2">Player Access</h2>
@@ -135,7 +130,7 @@
             <form onsubmit="app.login(event)" class="space-y-6">
                 <div class="text-left">
                     <label class="text-xs text-cyan-400 uppercase font-bold ml-1">Player ID</label>
-                    <input type="text" id="loginId" placeholder="e.g., 33. Amponsah" required class="mt-1">
+                    <input type="text" id="loginId" placeholder="e.g., 10. Messi" required class="mt-1">
                 </div>
                 <button type="submit" id="loginBtn" class="btn-neon">Access Dashboard</button>
                 <p id="loginError" class="text-red-400 text-sm mt-2 hidden"></p>
@@ -147,7 +142,6 @@
         </div>
     </section>
 
-    <!-- VIEW: ADMIN UPLOAD -->
     <section id="viewAdmin" class="view-section max-w-xl mx-auto mt-10">
         <div class="glass-card">
             <div class="flex justify-between items-center mb-6">
@@ -156,6 +150,12 @@
             </div>
             
             <div class="space-y-6">
+                <div>
+                    <label class="text-xs text-cyan-400 uppercase font-bold ml-1">YouTube Video ID (Optional)</label>
+                    <input type="text" id="adminVideoId" placeholder="e.g., dQw4w9WgXcQ" class="mt-1 bg-gray-900 border-gray-700">
+                    <p class="text-xs text-gray-500 mt-1">Paste the ID found after 'v=' in the YouTube URL.</p>
+                </div>
+
                 <div class="p-8 border-2 border-dashed border-gray-600 rounded-lg bg-gray-900/50 text-center hover:border-cyan-500/50 transition-colors">
                     <label class="block cursor-pointer">
                         <span class="text-cyan-400 font-bold text-lg block mb-2">Select Sportscode XML</span>
@@ -171,27 +171,21 @@
         </div>
     </section>
 
-    <!-- VIEW: DASHBOARD -->
     <section id="viewDashboard" class="view-section max-w-6xl mx-auto">
         <div class="grid md:grid-cols-4 gap-6">
-            <!-- Sidebar -->
             <div class="md:col-span-1 space-y-6">
-                <!-- Player Select Removed (Using logged in user) -->
-                
                 <div class="glass-card p-4">
                     <h3 class="text-lg text-white mb-3">Select Game</h3>
-                    <!-- Corrected ID to gameSelect to match JS usage -->
                     <select id="gameSelect" disabled onchange="app.loadGame(this.value)">
                         <option value="" disabled selected>No Game Loaded</option>
                     </select>
                 </div>
                 
                 <div class="text-dim text-xs italic p-2 opacity-70 bg-gray-900/30 rounded border border-gray-800">
-                    *Players are auto-assigned positions (Defender, Midfielder, or Attacker) for analysis context.
+                    *Dashboard uses FC360 Intelligence metrics to analyze performance affordances.
                 </div>
             </div>
 
-            <!-- Main Content -->
             <div class="md:col-span-3">
                 <div class="glass-card min-h-[600px]" id="snapshotContainer">
                     <div class="flex justify-between items-end border-b border-gray-700 pb-4 mb-6">
@@ -216,15 +210,13 @@
         </div>
     </section>
 
-    <!-- Floating Export Button -->
-    <button id="exportPdfBtn" class="hidden-btn fixed bottom-8 right-8 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center z-50" style="background: var(--accent-cyan);">
+    <button id="exportPdfBtn" onclick="app.exportPDF()" class="hidden-btn fixed bottom-8 right-8 text-white font-bold py-3 px-6 rounded-full shadow-lg flex items-center z-50 cursor-pointer hover:scale-105 transition-transform" style="background: var(--accent-cyan);">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         Export Profile
     </button>
 
-    <!-- Firebase Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -259,6 +251,9 @@
         const state = { user: null, availableGames: [] };
         let globalData = null; 
         let chartInstance = null;
+
+        // NEW: Default position to prevent crashes if unknown
+        const DEFAULT_POSITION = 'Midfielder';
 
         const positionConfig = {
             'Defender': {
@@ -319,9 +314,6 @@
                     console.error("Login Error:", err);
                     errorMsg.textContent = err.message;
                     errorMsg.classList.remove('hidden');
-                    if (err.code === 'permission-denied') {
-                        errorMsg.textContent = "Database access denied. Please update Firestore Rules in Firebase Console.";
-                    }
                 } finally {
                     btn.disabled = false;
                     btn.textContent = "Access Dashboard";
@@ -339,6 +331,9 @@
             },
             processAndUpload: () => {
                 const file = document.getElementById('adminFile').files[0];
+                // NEW: Get video ID
+                const videoId = document.getElementById('adminVideoId').value.trim();
+                
                 if(!file) return;
                 
                 const reader = new FileReader();
@@ -347,12 +342,14 @@
                         const parser = new DOMParser();
                         const xml = parser.parseFromString(e.target.result, "text/xml");
                         const parsed = parseXML(xml);
-                        assignRandomPositions(parsed.playerNames, parsed.players);
+                        // Using simpler position assignment for now
+                        assignPositions(parsed.playerNames, parsed.players);
 
                         if(db) {
                             const gameId = 'game_' + Date.now();
                             await setDoc(doc(db, 'artifacts', 'fc360-app', 'public', 'data', 'games', gameId), {
                                 matchName: file.name.replace('.xml', ''),
+                                videoId: videoId, // Store video ID
                                 playerData: parsed.players,
                                 playerList: parsed.playerNames,
                                 uploadDate: new Date().toISOString()
@@ -360,10 +357,13 @@
                             alert("Game Uploaded! Players can now log in.");
                             switchView('viewLogin');
                         } else {
-                            // Fallback for preview mode without DB
+                            // Preview Mode
                             globalData = parsed;
-                            alert("Preview Mode: Data parsed locally. Go to Dashboard to view (Login skipped).");
-                            state.availableGames = [{ id: 'local', name: file.name, data: { playerData: parsed.players } }];
+                            // Add video to local preview data
+                            globalData.videoId = videoId;
+                            
+                            alert("Preview Mode: Data parsed locally.");
+                            state.availableGames = [{ id: 'local', name: file.name, data: { playerData: parsed.players, videoId: videoId } }];
                             switchView('viewDashboard');
                             const select = document.getElementById('gameSelect');
                             select.innerHTML = '';
@@ -371,7 +371,6 @@
                             opt.value = 0; opt.text = file.name;
                             select.appendChild(opt);
                             select.disabled = false;
-                            // Note: Player select removed from sidebar in this version as per request
                         }
                     } catch(err) {
                         console.error(err);
@@ -383,42 +382,43 @@
             loadGame: (index) => {
                 console.log("Loading game index:", index);
                 const game = state.availableGames[index];
-                if (!game) {
-                    console.error("Game not found at index:", index);
-                    return;
-                }
+                if (!game) return;
                 
-                // Ensure we have a user. If in preview/admin mode without login, prompt or default
                 let currentUser = state.user;
+                // Preview mode fallback
                 if (!currentUser && globalData) {
-                    // If preview mode (no login), maybe pick the first player or prompt?
-                    // Since we removed the dropdown, we might need to just pick the first available player in the game data for preview.
-                     const players = Object.keys(game.data.playerData);
-                     if(players.length > 0) currentUser = players[0];
+                      const players = Object.keys(game.data.playerData);
+                      if(players.length > 0) currentUser = players[0];
                 }
 
-                if (!currentUser) {
-                    console.error("No user logged in");
-                    return;
-                }
+                if (!currentUser) return;
 
                 const playerData = game.data.playerData[currentUser];
+                const position = playerData.position || DEFAULT_POSITION;
+                const videoId = game.data.videoId || ''; // Get video ID
                 
-                renderRadarReport(currentUser, playerData.position, playerData, game.data.playerData, game.name);
+                renderRadarReport(currentUser, position, playerData, game.data.playerData, game.name, videoId);
             },
             exportPDF: () => {
                  const element = document.getElementById('snapshotContainer');
                  const originalBg = element.style.backgroundColor;
                  const originalOverflow = document.getElementById('dashboardContent').style.overflow;
+                 
+                 // Hide scrollbars for print
                  document.body.style.cursor = 'wait';
                  document.getElementById('dashboardContent').style.overflow = 'visible';
-                 element.style.backgroundColor = '#080214';
+                 element.style.backgroundColor = '#080214'; // Ensure dark background for capture
                  
                  const opt = {
-                    margin: 0.2,
+                    margin: 0.1,
                     filename: `${state.user || 'Player'}_Profile.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#080214' },
+                    html2canvas: { 
+                        scale: 2, 
+                        useCORS: true, 
+                        backgroundColor: '#080214',
+                        logging: false
+                    },
                     jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
                 };
                 html2pdf().set(opt).from(element).save().then(() => {
@@ -436,13 +436,10 @@
         }
         
         async function fetchUserGames(playerId) {
-            console.log("Fetching games for:", playerId);
             const select = document.getElementById('gameSelect');
             select.innerHTML = '<option>Loading...</option>';
             
             if(!db) {
-                 // If DB is missing, maybe we are in local preview? 
-                 // If not, throw error
                  if (!globalData) throw new Error("DB not connected");
                  return;
             }
@@ -458,8 +455,6 @@
                 }
             });
             
-            console.log("Found games:", state.availableGames.length);
-
             select.innerHTML = '<option value="" disabled selected>Select Match</option>';
             state.availableGames.forEach((g, i) => {
                 const opt = document.createElement('option');
@@ -489,18 +484,21 @@
             return { players, playerNames: Object.keys(players).sort() };
         }
 
-        function assignRandomPositions(names, playersObj) {
-            const shuffled = [...names].sort(() => 0.5 - Math.random());
-            const third = Math.ceil(shuffled.length/3);
-            shuffled.forEach((n, i) => {
-                playersObj[n].position = (i < third) ? 'Defender' : (i < third*2) ? 'Midfielder' : 'Attacker';
+        // NEW: simplified assignment logic (In a real app, you'd parse this from the XML metadata)
+        function assignPositions(names, playersObj) {
+            names.forEach((n, i) => {
+                // Heuristic: If name contains "GK", make them Goalkeeper (add logic later)
+                // For now, distribute evenly
+                const third = Math.ceil(names.length/3);
+                const pos = (i < third) ? 'Defender' : (i < third*2) ? 'Midfielder' : 'Attacker';
+                playersObj[n].position = pos;
             });
         }
 
-        function renderRadarReport(playerName, position, pData, allPlayersData, gameName) {
-            const config = positionConfig[position];
-            if(!config) return; 
-
+        function renderRadarReport(playerName, position, pData, allPlayersData, gameName, videoId) {
+            // Fallback to Midfielder if position config doesn't exist for assigned pos
+            const config = positionConfig[position] || positionConfig['Midfielder'];
+            
             const reportHeader = document.getElementById('reportHeader');
             if(reportHeader) {
                 const cleanName = playerName.replace(/^\d+\.\s*/, '');
@@ -550,6 +548,15 @@
                 return t > 0 ? Math.round((s/t)*100) : 0;
             });
 
+            // NEW: Generate Video Embed URL based on ID or fallback
+            let videoEmbed = '';
+            if(videoId) {
+                videoEmbed = `https://www.youtube.com/embed/${videoId}`;
+            } else {
+                // Fallback or placeholder if no video ID provided
+                videoEmbed = "https://www.youtube.com/embed/dQw4w9WgXcQ?mute=1"; // RickRoll as absolute fallback (mute it though)
+            }
+
             const container = document.getElementById('dashboardContent');
             if(container) {
                 container.innerHTML = `
@@ -578,20 +585,20 @@
                             </div>
                         </div>
                     </div>
-                                            <!-- Video Element -->
-                        <div class="glass-card p-6 border border-gray-700 rounded-xl">
-                            <h3 class="text-white font-bold text-xl mb-4">Video Analysis</h3>
-                            <div class="video-container">
-                                <iframe 
-                                    width="560" 
-                                    height="315" 
-                                    src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=p9eGq0uO-Q7i9e3b" 
-                                    title="YouTube video player" 
-                                    frameborder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                                    allowfullscreen>
-                                </iframe>
-                            </div>
+                    
+                    <div class="glass-card p-6 border border-gray-700 rounded-xl">
+                        <h3 class="text-white font-bold text-xl mb-4">Video Analysis</h3>
+                        ${videoId ? '' : '<p class="text-xs text-red-400 mb-2">No video ID provided for this match. Showing placeholder.</p>'}
+                        <div class="video-container">
+                            <iframe 
+                                width="560" 
+                                height="315" 
+                                src="${videoEmbed}" 
+                                title="Match Video" 
+                                frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                allowfullscreen>
+                            </iframe>
                         </div>
                     </div>
                 `;
