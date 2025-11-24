@@ -94,23 +94,6 @@
             background: rgba(0,0,0,0.95); color: #ff4444; z-index: 9999;
             padding: 2rem; display: none; font-family: monospace;
         }
-        
-        /* Video Container */
-        .video-container {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 */
-            height: 0;
-            overflow: hidden;
-            border-radius: 12px;
-            border: 1px solid var(--border-glow);
-        }
-        .video-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
     </style>
 </head>
 <body class="p-4 sm:p-8 relative">
@@ -176,15 +159,11 @@
         <div class="grid md:grid-cols-4 gap-6">
             <!-- Sidebar -->
             <div class="md:col-span-1 space-y-6">
+                <!-- Player Select Removed (Using logged in user) -->
+                
                 <div class="glass-card p-4">
-                    <h3 class="text-lg text-white mb-3">1. Select Player</h3>
-                    <select id="playerSelect" disabled class="mb-4">
-                        <option value="" disabled selected>Waiting for data...</option>
-                    </select>
-                </div>
-
-                <div class="glass-card p-4">
-                    <h3 class="text-lg text-white mb-3">2. Select Game</h3>
+                    <h3 class="text-lg text-white mb-3">Select Game</h3>
+                    <!-- Corrected ID to gameSelect to match JS usage -->
                     <select id="gameSelect" disabled onchange="app.loadGame(this.value)">
                         <option value="" disabled selected>No Game Loaded</option>
                     </select>
@@ -199,8 +178,8 @@
             <div class="md:col-span-3">
                 <div class="glass-card min-h-[600px]" id="snapshotContainer">
                     <div class="flex justify-between items-end border-b border-gray-700 pb-4 mb-6">
-                        <div id="reportHeaderContainer">
-                            <h2 class="text-3xl text-white font-bold" id="reportHeader">Select a Match</h2>
+                        <div id="reportHeader">
+                            <h2 class="text-3xl text-white font-bold" id="reportTitleText">Select a Match</h2>
                             <p id="reportSubText" class="text-dim text-sm mt-1">Performance Analysis</p>
                         </div>
                         <div id="brandingText" class="text-xs text-gray-500">FC360 Intelligence</div>
@@ -320,6 +299,7 @@
                         throw new Error("No games found for this Player ID. Please ask Admin to upload game data.");
                     }
                 } catch (err) {
+                    console.error("Login Error:", err);
                     errorMsg.textContent = err.message;
                     errorMsg.classList.remove('hidden');
                     if (err.code === 'permission-denied') {
@@ -374,9 +354,7 @@
                             opt.value = 0; opt.text = file.name;
                             select.appendChild(opt);
                             select.disabled = false;
-                            
-                            document.getElementById('playerSelect').disabled = false;
-                            populateDropdown(parsed.playerNames);
+                            // Note: Player select removed from sidebar in this version as per request
                         }
                     } catch(err) {
                         console.error(err);
@@ -386,26 +364,29 @@
                 reader.readAsText(file);
             },
             loadGame: (index) => {
+                console.log("Loading game index:", index);
                 const game = state.availableGames[index];
-                if (!game) return;
+                if (!game) {
+                    console.error("Game not found at index:", index);
+                    return;
+                }
                 
-                // Use logged in user OR selection from dropdown (if in preview)
-                const currentUser = state.user || document.getElementById('playerSelect').value;
-                if (!currentUser) return;
+                // Ensure we have a user. If in preview/admin mode without login, prompt or default
+                let currentUser = state.user;
+                if (!currentUser && globalData) {
+                    // If preview mode (no login), maybe pick the first player or prompt?
+                    // Since we removed the dropdown, we might need to just pick the first available player in the game data for preview.
+                     const players = Object.keys(game.data.playerData);
+                     if(players.length > 0) currentUser = players[0];
+                }
+
+                if (!currentUser) {
+                    console.error("No user logged in");
+                    return;
+                }
 
                 const playerData = game.data.playerData[currentUser];
                 
-                if(state.user) {
-                    const pSelect = document.getElementById('playerSelect');
-                    pSelect.innerHTML = '';
-                    const opt = document.createElement('option');
-                    opt.value = state.user;
-                    opt.text = state.user; 
-                    pSelect.appendChild(opt);
-                    pSelect.disabled = false;
-                    pSelect.value = state.user;
-                }
-
                 renderRadarReport(currentUser, playerData.position, playerData, game.data.playerData, game.name);
             },
             exportPDF: () => {
@@ -437,46 +418,17 @@
             document.getElementById(id).classList.add('active');
         }
         
-        function populateDropdown(names) {
-            const select = document.getElementById('playerSelect');
-            select.innerHTML = '<option value="" disabled selected>Select Player</option>';
-            names.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.text = name;
-                select.appendChild(opt);
-            });
-        }
-        
-        // Manual player change handler (mostly for Admin Preview mode)
-        document.getElementById('playerSelect').addEventListener('change', (e) => {
-            // If we are in preview mode or verifying data
-            const player = e.target.value;
-            const gameIdx = document.getElementById('gameSelect').value;
-            
-            // Logic for dynamic dropdown text update
-            // 1. Reset all options to just Name
-            Array.from(e.target.options).forEach(opt => {
-                if (opt.text.includes(' / ')) opt.text = opt.text.split(' / ')[0];
-            });
-
-            if (gameIdx !== "" && state.availableGames[gameIdx]) {
-                const gameData = state.availableGames[gameIdx].data;
-                const pData = gameData.playerData[player];
-                const gameName = state.availableGames[gameIdx].name;
-                
-                if(pData) {
-                    const selectedOpt = e.target.options[e.target.selectedIndex];
-                    selectedOpt.text = `${player} / ${pData.position}`;
-                    renderRadarReport(player, pData.position, pData, gameData.playerData, gameName);
-                }
-            }
-        });
-
         async function fetchUserGames(playerId) {
+            console.log("Fetching games for:", playerId);
             const select = document.getElementById('gameSelect');
             select.innerHTML = '<option>Loading...</option>';
-            if(!db) throw new Error("DB not connected");
+            
+            if(!db) {
+                 // If DB is missing, maybe we are in local preview? 
+                 // If not, throw error
+                 if (!globalData) throw new Error("DB not connected");
+                 return;
+            }
 
             const q = collection(db, 'artifacts', 'fc360-app', 'public', 'data', 'games');
             const snapshot = await getDocs(q);
@@ -488,6 +440,8 @@
                     state.availableGames.push({ id: doc.id, name: d.matchName, data: d });
                 }
             });
+            
+            console.log("Found games:", state.availableGames.length);
 
             select.innerHTML = '<option value="" disabled selected>Select Match</option>';
             state.availableGames.forEach((g, i) => {
@@ -496,6 +450,7 @@
                 opt.text = g.name;
                 select.appendChild(opt);
             });
+            select.disabled = false;
         }
 
         function parseXML(xmlDoc) {
@@ -545,7 +500,7 @@
             }
             
             const brandingEl = document.getElementById('brandingText');
-            if(brandingEl) brandingEl.textContent = "FC360";
+            if(brandingEl) brandingEl.textContent = "FC360 Intelligence";
 
             const exportBtn = document.getElementById('exportPdfBtn');
             if(exportBtn) {
@@ -581,46 +536,28 @@
             const container = document.getElementById('dashboardContent');
             if(container) {
                 container.innerHTML = `
-                    <div class="space-y-8">
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center h-full">
-                            <div class="lg:col-span-1 space-y-4">
-                                ${pMetrics.map((m, i) => `
-                                    <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
-                                        <div>
-                                            <span class="text-dim font-bold uppercase text-sm block">${m.label}</span>
-                                            <span class="text-xs text-gray-500">Team Avg: ${tMetrics[i]}%</span>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="space-x-1">
-                                                <span class="text-xl text-white font-mono">${m.total}</span>
-                                                <span class="text-xs text-dim">/</span>
-                                                <span class="text-xl text-green-400 font-mono">${m.succ}</span>
-                                            </div>
-                                            <div class="text-xs text-cyan-400">${m.pct}% Rate</div>
-                                        </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center h-full">
+                        <div class="lg:col-span-1 space-y-4">
+                            ${pMetrics.map((m, i) => `
+                                <div class="bg-gray-900/60 p-4 rounded-xl border border-gray-700 flex justify-between items-center">
+                                    <div>
+                                        <span class="text-dim font-bold uppercase text-sm block">${m.label}</span>
+                                        <span class="text-xs text-gray-500">Team Avg: ${tMetrics[i]}%</span>
                                     </div>
-                                `).join('')}
-                            </div>
-                            <div class="lg:col-span-2 bg-gray-900/40 rounded-xl border border-gray-700 p-4 flex justify-center items-center h-[400px]">
-                                <div class="chart-container">
-                                    <canvas id="radarChart"></canvas>
+                                    <div class="text-right">
+                                        <div class="space-x-1">
+                                            <span class="text-xl text-white font-mono">${m.total}</span>
+                                            <span class="text-xs text-dim">/</span>
+                                            <span class="text-xl text-green-400 font-mono">${m.succ}</span>
+                                        </div>
+                                        <div class="text-xs text-cyan-400">${m.pct}% Rate</div>
+                                    </div>
                                 </div>
-                            </div>
+                            `).join('')}
                         </div>
-                        
-                        <!-- Video Element -->
-                        <div class="glass-card p-6 border border-gray-700 rounded-xl">
-                            <h3 class="text-white font-bold text-xl mb-4">Match Highlights</h3>
-                            <div class="video-container">
-                                <iframe 
-                                    width="560" 
-                                    height="315" 
-                                    src="https://www.youtube.com/embed/dQw4w9WgXcQ?si=p9eGq0uO-Q7i9e3b" 
-                                    title="YouTube video player" 
-                                    frameborder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                                    allowfullscreen>
-                                </iframe>
+                        <div class="lg:col-span-2 bg-gray-900/40 rounded-xl border border-gray-700 p-4 flex justify-center items-center h-[400px]">
+                            <div class="chart-container">
+                                <canvas id="radarChart"></canvas>
                             </div>
                         </div>
                     </div>
