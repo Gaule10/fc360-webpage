@@ -183,9 +183,10 @@
                 <div class="glass-card min-h-[600px]" id="snapshotContainer">
                     <div class="flex justify-between items-end border-b border-gray-700 pb-4 mb-6">
                         <div id="reportHeader">
-                            <h2 class="text-3xl text-white font-bold">Select a Match</h2>
+                            <h2 class="text-3xl text-white font-bold" id="reportTitleText">Select a Match</h2>
+                            <p id="reportSubText" class="text-dim text-sm mt-1">Performance Analysis</p>
                         </div>
-                        <div class="text-xs text-gray-500">FC360 Intelligence</div>
+                        <div id="brandingText" class="text-xs text-gray-500">FC360 Intelligence</div>
                     </div>
 
                     <div id="dashboardContent" class="space-y-8">
@@ -216,16 +217,17 @@
         import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- PASTE YOUR FIREBASE CONFIG HERE (from Firebase Console) ---
+        // --- PASTE YOUR FIREBASE CONFIG HERE ---
         const yourFirebaseConfig = {
             apiKey: "AIzaSyC9y_vQf5lK8OXWwvQlGGmF8yt0HJAE9io",
             authDomain: "fc360-beccb.firebaseapp.com",
             projectId: "fc360-beccb",
             storageBucket: "fc360-beccb.firebasestorage.app",
             messagingSenderId: "218674719680",
-            appId: "1:218674719680:web:632b7f32d795c3a1b5f625"
+            appId: "1:218674719680:web:632b7f32d795c3a1b5f625",
+            measurementId: "G-Q3Y1K1P398"
         };
-        // ---------------------------------------------------------------
+        // ---------------------------------------
 
         const firebaseConfig = (typeof __firebase_config !== 'undefined' && __firebase_config) 
             ? JSON.parse(__firebase_config) 
@@ -243,7 +245,7 @@
         }
 
         const state = { user: null, availableGames: [] };
-        let globalData = null; // For Admin XML preview
+        let globalData = null; 
         let chartInstance = null;
 
         const positionConfig = {
@@ -304,10 +306,6 @@
                 } catch (err) {
                     errorMsg.textContent = err.message;
                     errorMsg.classList.remove('hidden');
-                    // Check for permission errors
-                    if (err.code === 'permission-denied') {
-                        errorMsg.textContent = "Database access denied. Please update Firestore Rules in Firebase Console.";
-                    }
                 } finally {
                     btn.disabled = false;
                     btn.textContent = "Access Dashboard";
@@ -348,11 +346,11 @@
                         } else {
                             // Fallback for preview mode without DB
                             globalData = parsed;
-                            alert("Preview Mode: Data parsed locally. Go to Dashboard to view (Login skipped).");
-                            // Simulate Login
+                            alert("Preview Mode: Data parsed locally. Go to Dashboard.");
                             state.availableGames = [{ id: 'local', name: file.name, data: { playerData: parsed.players } }];
                             switchView('viewDashboard');
-                            // Mock populating the game select
+                            
+                            // Setup select
                             const select = document.getElementById('gameSelector');
                             select.innerHTML = '';
                             const opt = document.createElement('option');
@@ -360,7 +358,7 @@
                             select.appendChild(opt);
                             select.disabled = false;
                             
-                            // Enable player select to let Admin debug
+                            // Enable player select manually for preview
                             document.getElementById('playerSelect').disabled = false;
                             populateDropdown(parsed.playerNames);
                         }
@@ -375,14 +373,26 @@
                 const game = state.availableGames[index];
                 if (!game) return;
                 
-                // In real user mode, we auto-select the logged in user
-                // In admin preview mode (globalData exists), we might let them pick
+                // If in admin preview mode (user is null), let them pick from dropdown
+                const currentUser = state.user || document.getElementById('playerSelect').value;
+                if (!currentUser) return;
+
+                const playerData = game.data.playerData[currentUser];
                 
-                if (state.user) {
-                    const playerData = game.data.playerData[state.user];
-                    // Auto-render for logged in user
-                    renderRadarReport(state.user, playerData.position, playerData, game.data.playerData, game.name);
+                // Ensure dropdown matches current user if coming from Login flow
+                if(state.user) {
+                    const pSelect = document.getElementById('playerSelect');
+                    // Clear and set just this player
+                    pSelect.innerHTML = '';
+                    const opt = document.createElement('option');
+                    opt.value = state.user;
+                    opt.text = state.user; 
+                    pSelect.appendChild(opt);
+                    pSelect.disabled = false;
+                    pSelect.value = state.user;
                 }
+
+                renderRadarReport(currentUser, playerData.position, playerData, game.data.playerData, game.name);
             },
             exportPDF: () => {
                  const element = document.getElementById('snapshotContainer');
@@ -407,7 +417,6 @@
             }
         };
 
-        // --- UI Helpers ---
         function switchView(id) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -424,15 +433,26 @@
             });
         }
         
-        // Allow manual player selection change (mainly for admin debug or switching views)
+        // Manual player change handler (mostly for Admin Preview mode)
         document.getElementById('playerSelect').addEventListener('change', (e) => {
-            // If we are in preview mode or verifying data
             const player = e.target.value;
             const gameIdx = document.getElementById('gameSelector').value;
+            
+            // Logic for dynamic dropdown text update
+            // 1. Reset all options to just Name
+            Array.from(e.target.options).forEach(opt => {
+                if (opt.text.includes(' / ')) opt.text = opt.text.split(' / ')[0];
+            });
+
             if (gameIdx !== "" && state.availableGames[gameIdx]) {
                 const gameData = state.availableGames[gameIdx].data;
                 const pData = gameData.playerData[player];
                 const gameName = state.availableGames[gameIdx].name;
+                
+                // 2. Update Selected Option Text
+                const selectedOpt = e.target.options[e.target.selectedIndex];
+                if(pData) selectedOpt.text = `${player} / ${pData.position}`;
+
                 renderRadarReport(player, pData.position, pData, gameData.playerData, gameName);
             }
         });
@@ -491,27 +511,29 @@
 
         function renderRadarReport(playerName, position, pData, allPlayersData, gameName) {
             const config = positionConfig[position];
+            
+            // SAFEGUARD: Check if config exists for position
             if(!config) {
-                console.error("Unknown position:", position);
-                return;
+                console.error("Unknown position config for:", position);
+                return; 
             }
 
-            // Header Info
-            const cleanName = playerName.replace(/^\d+\.\s*/, '');
-            let opposition = "Opposition";
-            if(gameName.includes('@')) opposition = gameName.split('@')[1].trim();
+            const reportHeader = document.getElementById('reportHeader');
+            if(reportHeader) {
+                reportHeader.innerHTML = `
+                    <h2 class="text-3xl text-white font-bold">
+                        <span style="color:var(--accent-cyan)">${playerName}</span> 
+                        <span class="text-sm text-dim">| ${position}</span>
+                    </h2>
+                `;
+            }
+            
+            const brandingEl = document.querySelector('#snapshotContainer .text-dim.text-sm');
+            if(brandingEl) brandingEl.textContent = "FC360 Intelligence";
 
-            document.getElementById('playerSnapshotTitle').innerHTML = `
-                <div class="flex flex-col">
-                    <span class="text-3xl text-white font-bold">${cleanName}</span>
-                    <span class="text-lg text-cyan-400 mt-1">${position}</span>
-                    <span class="text-sm text-dim mt-1">vs ${opposition}</span>
-                </div>
-            `;
             document.getElementById('exportPdfBtn').classList.add('visible-btn');
             document.getElementById('exportPdfBtn').classList.remove('hidden-btn');
 
-            // Calculate Metrics
             const pMetrics = config.labels.map(lbl => {
                 let t = 0, s = 0;
                 config.map[lbl].forEach(term => {
@@ -609,10 +631,7 @@
                         }
                     },
                     plugins: {
-                        legend: { 
-                            position: 'bottom', align: 'start', 
-                            labels: { color: '#9ca3af', usePointStyle: true, boxWidth: 8, padding: 20 } 
-                        }
+                        legend: { position: 'bottom', align: 'start', labels: { color: '#9ca3af', usePointStyle: true, boxWidth: 8, padding: 20 } }
                     }
                 }
             });
