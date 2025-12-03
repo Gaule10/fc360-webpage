@@ -134,10 +134,6 @@
                 <button type="button" onclick="app.showSignup()" class="btn-text">Create an Account</button>
                 <p id="loginError" class="text-red-400 text-sm mt-4 hidden"></p>
             </form>
-
-            <div class="mt-8 pt-8 border-t border-gray-800">
-                <button onclick="app.showAdmin()" class="text-xs text-gray-600 hover:text-gray-400">Admin Access</button>
-            </div>
         </div>
     </section>
 
@@ -191,7 +187,10 @@
         <div class="glass-card">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-white">Admin Data Upload</h2>
-                <button onclick="app.showLogin()" class="text-sm text-dim hover:text-white">Cancel</button>
+                <div class="flex gap-3">
+                    <button onclick="app.goToDashboard()" class="text-xs text-cyan-400 border border-cyan-400/30 px-2 py-1 rounded hover:bg-cyan-400/20">View Dashboard</button>
+                    <button onclick="app.logout()" class="text-xs text-red-400 hover:text-white">Logout</button>
+                </div>
             </div>
             
             <div class="space-y-6">
@@ -265,7 +264,7 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- FIREBASE CONFIG ---
+        // --- FIREBASE CONFIG (Paste yours here) ---
         const firebaseConfig = {
             apiKey: "AIzaSyC9y_vQf5lK8OXWwvQlGGmF8yt0HJAE9io",
             authDomain: "fc360-beccb.firebaseapp.com",
@@ -274,7 +273,7 @@
             messagingSenderId: "218674719680",
             appId: "1:218674719680:web:632b7f32d795c3a1b5f625"
         };
-        // -----------------------
+        // ------------------------------------------
 
         const appInit = initializeApp(firebaseConfig);
         const auth = getAuth(appInit);
@@ -283,6 +282,10 @@
         let currentUser = null;
         let chartInstance = null;
         const state = { games: [] };
+
+        // --- ! IMPORTANT ! SET YOUR ADMIN EMAIL HERE ---
+        const ADMIN_EMAIL = "info@fc360.co"; 
+        // ------------------------------------------------
 
         // Configuration
         const positionConfig = {
@@ -309,8 +312,7 @@
             // --- AUTH ---
             showSignup: () => switchView('viewSignup'),
             showLogin: () => switchView('viewLogin'),
-            showAdmin: () => switchView('viewAdmin'),
-
+            
             signup: async (e) => {
                 e.preventDefault();
                 const btn = document.getElementById('regBtn');
@@ -354,18 +356,28 @@
                 try {
                     const userCredential = await signInWithEmailAndPassword(auth, email, pass);
                     const uid = userCredential.user.uid;
-                    const docSnap = await getDoc(doc(db, "users", uid));
-                    
-                    if (docSnap.exists()) {
-                        currentUser = docSnap.data();
-                        currentUser.uid = uid;
-                        initDashboard();
+
+                    // SMART ROUTING: Check if this is the Admin
+                    if (userCredential.user.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+                        currentUser = { fullName: "Admin", email: email, position: "Coach", matchName: "Admin", uid: uid, isAdmin: true };
+                        alert("Welcome back, Coach.");
+                        switchView('viewAdmin');
                     } else {
-                        throw new Error("User profile missing.");
+                        // Regular Player
+                        const docSnap = await getDoc(doc(db, "users", uid));
+                        if (docSnap.exists()) {
+                            currentUser = docSnap.data();
+                            currentUser.uid = uid;
+                            currentUser.isAdmin = false;
+                            initDashboard();
+                        } else {
+                            throw new Error("User profile missing.");
+                        }
                     }
                 } catch (error) {
                     err.textContent = "Login Failed: " + error.message;
                     err.classList.remove('hidden');
+                } finally {
                     btn.disabled = false; btn.textContent = "Login";
                 }
             },
@@ -375,6 +387,14 @@
             },
 
             // --- ADMIN ---
+            showAdmin: () => switchView('viewAdmin'), // In case they are logged in and want to go back
+            
+            goToDashboard: () => {
+                // If Admin wants to see dashboard
+                if(!currentUser) return;
+                initDashboard();
+            },
+
             handleFileSelect: (input) => {
                 if(input.files[0]) {
                     document.getElementById('fileNameDisplay').textContent = input.files[0].name;
@@ -416,9 +436,21 @@
                 const game = state.games[index];
                 if (!game || !currentUser) return;
                 
+                // If Admin, they might not match a name in the file.
+                // We just default to the FIRST player in the list if no match found.
                 const availablePlayers = Object.keys(game.data.playerData);
-                let matchedKey = availablePlayers.find(p => p.toLowerCase() === currentUser.matchName.toLowerCase());
-                if(!matchedKey) matchedKey = availablePlayers.find(p => p.toLowerCase().includes(currentUser.matchName.toLowerCase()));
+                
+                let matchedKey;
+                if(currentUser.isAdmin) {
+                    // For Admin: Try to find a player from the dropdown if we had one, 
+                    // or just pick the first one for preview. 
+                    // Ideally admin selects a player, but for now we pick the first to avoid crash.
+                    matchedKey = availablePlayers[0];
+                    alert(`Admin Mode: Viewing data for ${matchedKey}`);
+                } else {
+                    matchedKey = availablePlayers.find(p => p.toLowerCase() === currentUser.matchName.toLowerCase());
+                    if(!matchedKey) matchedKey = availablePlayers.find(p => p.toLowerCase().includes(currentUser.matchName.toLowerCase()));
+                }
 
                 if (!matchedKey) {
                     alert(`Could not find player "${currentUser.matchName}" in this game file.`);
@@ -427,7 +459,11 @@
 
                 const playerData = game.data.playerData[matchedKey];
                 const videoId = game.data.videoId || ''; 
-                renderRadarReport(currentUser.fullName, currentUser.position, playerData, game.data.playerData, game.name, videoId);
+                
+                // Use user's position, or default to Midfielder if admin/unknown
+                const pos = currentUser.position || 'Midfielder';
+                
+                renderRadarReport(matchedKey, pos, playerData, game.data.playerData, game.name, videoId);
             },
 
             exportPDF: () => {
@@ -439,7 +475,7 @@
                  element.style.backgroundColor = '#080214';
                  
                  const opt = {
-                    margin: 0.1, filename: `${currentUser.fullName}_FC360.pdf`,
+                    margin: 0.1, filename: `FC360_Report.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2, useCORS: true, backgroundColor: '#080214' },
                     jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
@@ -473,8 +509,13 @@
 
             snapshot.forEach(doc => {
                 const d = doc.data();
-                if (d.playerList.some(name => name.toLowerCase().includes(currentUser.matchName.toLowerCase()))) {
+                // If Admin, show ALL games. If Player, filter by name.
+                if (currentUser.isAdmin) {
                     state.games.push({ id: doc.id, name: d.matchName, data: d });
+                } else {
+                    if (d.playerList.some(name => name.toLowerCase().includes(currentUser.matchName.toLowerCase()))) {
+                        state.games.push({ id: doc.id, name: d.matchName, data: d });
+                    }
                 }
             });
 
